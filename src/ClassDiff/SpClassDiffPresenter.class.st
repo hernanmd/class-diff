@@ -8,18 +8,45 @@ See class side for examples.
 Class {
 	#name : 'SpClassDiffPresenter',
 	#superclass : 'SpPresenter',
+	#classTraits : '{} + TraitedClass',
 	#instVars : [
-		'targetClassPresenter',
 		'sourceClass',
 		'targetClass',
 		'aligner',
 		'sourceClassListPresenter',
 		'sourceMethodPresenter',
-		'targetMethodPresenter'
+		'targetMethodPresenter',
+		'targetClassListPresenter'
 	],
-	#category : 'ClassDiff',
-	#package : 'ClassDiff'
+	#category : 'ClassDiff-Spec',
+	#package : 'ClassDiff',
+	#tag : 'Spec'
 }
+
+{ #category : 'commands' }
+SpClassDiffPresenter class >> buildCommandsGroupWith: presenter forRoot: aCmCommandsGroup [
+
+	aCmCommandsGroup beDisplayedAsGroup.
+	aCmCommandsGroup register: (self navigationCommandsGroupWith: presenter)
+]
+
+{ #category : 'commands' }
+SpClassDiffPresenter class >> navigationCommandsGroupWith: aPresenter [
+	| group |
+	
+	group := (CmCommandGroup named: 'ClassDiffCommands') asSpecGroup
+		description: '';
+		yourself.
+
+	{ 
+		SpBrowseClassCommand.		
+		SpBrowseImplementorsCommand.
+		SpBrowseSendersCommand.
+		SpBrowseMethodReferencesCommand.	
+	 } 
+	do: [ :commandClass | group register: (commandClass forSpecContext: aPresenter) ].
+	^ group
+]
 
 { #category : 'instance creation' }
 SpClassDiffPresenter class >> openExample [
@@ -50,17 +77,13 @@ SpClassDiffPresenter >> connectPresenters [
 	sourceClassListPresenter 
 		transmitTo: sourceMethodPresenter
 		transform: [ : selector | selector 
-			ifNotNil: [ self updateSelectionFromTarget: selector ]
+			ifNotNil: [ self updateSelectionFromSource: selector ]
 			ifNil: [ String empty ] ].
 		
-	targetClassPresenter
+	targetClassListPresenter
 		transmitTo: targetMethodPresenter 
 		transform: [ : selector | selector 
-			ifNotNil: [ 
-				| aMethod |
-				aMethod := self targetClass >> selector.
-				targetMethodPresenter beForMethod: aMethod.
-				aMethod sourceCode ] 
+			ifNotNil: [ self updateSelectionFromTarget: selector ] 
 			ifNil: [ String empty ] ]
 		
 ]
@@ -71,11 +94,13 @@ SpClassDiffPresenter >> defaultLayout [
 	^ SpBoxLayout newLeftToRight
 		spacing: 3;
 		add: (SpBoxLayout newTopToBottom
+			spacing: 3;		
 			add: sourceClassListPresenter;
 			add: sourceMethodPresenter;
 			yourself);
 		add: (SpBoxLayout newTopToBottom
-			add: targetClassPresenter;
+			spacing: 3;		
+			add: targetClassListPresenter;
 			add: targetMethodPresenter;
 			yourself);
 		yourself
@@ -106,9 +131,12 @@ SpClassDiffPresenter >> initializeListPresenters [
 
 	sourceClassListPresenter := self newList
 		beSingleSelection;
+		contextMenu: [ (self rootCommandsGroup / 'ClassDiffCommands') beRoot asMenuPresenter ];
 		yourself.
-	targetClassPresenter := self newList
+	targetClassListPresenter := self newList
 		beSingleSelection;
+		whenSelectedItemChangedDo: [ : item | item ifNotNil: [ self updateSelectionFromTarget: item ] ];
+		contextMenu: [ (self rootCommandsGroup / 'ClassDiffCommands') beRoot asMenuPresenter ];		
 		yourself.
 ]
 
@@ -182,19 +210,13 @@ SpClassDiffPresenter >> sourceClass [
 SpClassDiffPresenter >> sourceClass: anObject [
 
 	sourceClass := anObject.
-	self sourceClassPresenter headerTitle: sourceClass name.
+	self sourceClassListPresenter headerTitle: sourceClass name.
 ]
 
 { #category : 'accessing' }
-SpClassDiffPresenter >> sourceClassPresenter [
+SpClassDiffPresenter >> sourceClassListPresenter [
 
 	^ sourceClassListPresenter
-]
-
-{ #category : 'accessing' }
-SpClassDiffPresenter >> sourceClassPresenter: anObject [
-
-	sourceClassListPresenter := anObject
 ]
 
 { #category : 'accessing' }
@@ -207,19 +229,13 @@ SpClassDiffPresenter >> targetClass [
 SpClassDiffPresenter >> targetClass: anObject [
 
 	targetClass := anObject.
-	self targetClassPresenter headerTitle: targetClass name
+	self targetClassListPresenter headerTitle: targetClass name
 ]
 
 { #category : 'accessing' }
-SpClassDiffPresenter >> targetClassPresenter [
+SpClassDiffPresenter >> targetClassListPresenter [
 
-	^ targetClassPresenter
-]
-
-{ #category : 'accessing' }
-SpClassDiffPresenter >> targetClassPresenter: anObject [
-
-	targetClassPresenter := anObject
+	^ targetClassListPresenter
 ]
 
 { #category : 'initialization' }
@@ -231,9 +247,24 @@ SpClassDiffPresenter >> updateAlignment [
 	self aligner 
 		align: self sourceClass selectors sort
 		with: self targetClass selectors sort.
-	self sourceClassPresenter items: self aligner firstSequence.
-	self targetClassPresenter items: self aligner secondSequence.
+	self sourceClassListPresenter items: self aligner firstSequence.
+	self targetClassListPresenter items: self aligner secondSequence.
 	self withWindowDo: [ :w | w title: self updatedTitle ].
+]
+
+{ #category : 'accessing' }
+SpClassDiffPresenter >> updateSelectionFromSource: selector [ 
+
+	| aMethod |
+
+	selector = self aligner gapCharacter
+		ifTrue: [ ^ String empty ].
+
+	targetClassListPresenter selectItem: selector.
+
+	aMethod := self sourceClass >> selector.
+	sourceMethodPresenter beForMethod: aMethod.
+	^ aMethod sourceCode
 ]
 
 { #category : 'accessing' }
@@ -244,10 +275,10 @@ SpClassDiffPresenter >> updateSelectionFromTarget: selector [
 	selector = self aligner gapCharacter
 		ifTrue: [ ^ String empty ].
 
-	targetClassPresenter selectItem: selector.
+	sourceClassListPresenter selectItem: selector.
 
-	aMethod := self sourceClass >> selector.
-	sourceMethodPresenter beForMethod: aMethod.
+	aMethod := self targetClass >> selector.
+	targetMethodPresenter beForMethod: aMethod.
 	^ aMethod sourceCode
 ]
 

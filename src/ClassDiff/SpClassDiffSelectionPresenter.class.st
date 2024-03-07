@@ -8,8 +8,9 @@ Class {
 		'sourceClassSelectorPresenter',
 		'targetClassSelectorPresenter'
 	],
-	#category : 'ClassDiff',
-	#package : 'ClassDiff'
+	#category : 'ClassDiff-Spec',
+	#package : 'ClassDiff',
+	#tag : 'Spec'
 }
 
 { #category : 'instance creation' }
@@ -43,7 +44,7 @@ SpClassDiffSelectionPresenter >> defaultLayout [
 		add: (SpBoxLayout newTopToBottom
 			spacing: 3;		
 			add: targetClassSelectorPresenter expand: false;
-			add: targetClassPresenter;
+			add: targetClassListPresenter;
 			add: targetMethodPresenter;			
 			yourself);
 		yourself
