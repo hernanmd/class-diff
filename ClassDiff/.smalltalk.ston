@@ -1,0 +1,1 @@
+SmalltalkCISpec {  #loading : [    SCIMetacelloLoadSpec {      #baseline : 'ClassDiff',      #directory : 'src',      #platforms : [ #pharo ]    }  ],  #testing : {    #coverage : {      #packages : [ 'ClassDiff*' ]    }  }}
