@@ -9,7 +9,7 @@ Class {
 BaselineOfClassDiff >> aligner: spec [
 
 	spec
-		baseline: 'NeedlemanWunsch';
+		baseline: 'NeedlemanWunsch'
 		with: [ spec repository: 'github://hernanmd/needleman-wunsch/src' ]
 
 ]
