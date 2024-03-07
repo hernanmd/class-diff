@@ -1,0 +1,1 @@
+Package { #name : 'ClassDiff-Tests' }
