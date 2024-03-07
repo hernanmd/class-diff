@@ -33,13 +33,18 @@ SpClassDiffSelectionPresenter class >> openExample [
 SpClassDiffSelectionPresenter >> defaultLayout [ 
 
 	^ SpBoxLayout newLeftToRight 
+		spacing: 3;	
 		add: (SpBoxLayout newTopToBottom
+			spacing: 3;		
 			add: sourceClassSelectorPresenter expand: false;
-			add: sourceClassPresenter;
+			add: sourceClassListPresenter;
+			add: sourceMethodPresenter;
 			yourself);
 		add: (SpBoxLayout newTopToBottom
+			spacing: 3;		
 			add: targetClassSelectorPresenter expand: false;
 			add: targetClassPresenter;
+			add: targetMethodPresenter;			
 			yourself);
 		yourself
 ]
@@ -48,6 +53,14 @@ SpClassDiffSelectionPresenter >> defaultLayout [
 SpClassDiffSelectionPresenter >> initializePresenters [
 
 	super initializePresenters.
+	self initializeSelectorPresenters.
+
+
+]
+
+{ #category : 'initialization' }
+SpClassDiffSelectionPresenter >> initializeSelectorPresenters [
+
 	sourceClassSelectorPresenter := (self instantiate: SpSelectEntity) 
 		selectDialog: [ SpListPresenter new
 				items: Smalltalk globals allClasses;

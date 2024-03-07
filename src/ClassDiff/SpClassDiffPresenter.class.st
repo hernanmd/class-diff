@@ -9,11 +9,13 @@ Class {
 	#name : 'SpClassDiffPresenter',
 	#superclass : 'SpPresenter',
 	#instVars : [
-		'sourceClassPresenter',
 		'targetClassPresenter',
 		'sourceClass',
 		'targetClass',
-		'aligner'
+		'aligner',
+		'sourceClassListPresenter',
+		'sourceMethodPresenter',
+		'targetMethodPresenter'
 	],
 	#category : 'ClassDiff',
 	#package : 'ClassDiff'
@@ -42,12 +44,40 @@ SpClassDiffPresenter >> aligner: anObject [
 	aligner := anObject
 ]
 
+{ #category : 'initialization' }
+SpClassDiffPresenter >> connectPresenters [ 
+
+	sourceClassListPresenter 
+		transmitTo: sourceMethodPresenter
+		transform: [ : selector | selector 
+			ifNotNil: [ self updateSelectionFromTarget: selector ]
+			ifNil: [ String empty ] ].
+		
+	targetClassPresenter
+		transmitTo: targetMethodPresenter 
+		transform: [ : selector | selector 
+			ifNotNil: [ 
+				| aMethod |
+				aMethod := self targetClass >> selector.
+				targetMethodPresenter beForMethod: aMethod.
+				aMethod sourceCode ] 
+			ifNil: [ String empty ] ]
+		
+]
+
 { #category : 'layout' }
 SpClassDiffPresenter >> defaultLayout [ 
 
-	^ SpBoxLayout newLeftToRight 
-		add: sourceClassPresenter;
-		add: targetClassPresenter;
+	^ SpBoxLayout newLeftToRight
+		spacing: 3;
+		add: (SpBoxLayout newTopToBottom
+			add: sourceClassListPresenter;
+			add: sourceMethodPresenter;
+			yourself);
+		add: (SpBoxLayout newTopToBottom
+			add: targetClassPresenter;
+			add: targetMethodPresenter;
+			yourself);
 		yourself
 ]
 
@@ -72,14 +102,35 @@ SpClassDiffPresenter >> initialize [
 ]
 
 { #category : 'initialization' }
-SpClassDiffPresenter >> initializePresenters [ 
+SpClassDiffPresenter >> initializeListPresenters [
 
-	sourceClassPresenter := self newList
+	sourceClassListPresenter := self newList
 		beSingleSelection;
 		yourself.
 	targetClassPresenter := self newList
 		beSingleSelection;
 		yourself.
+]
+
+{ #category : 'initialization' }
+SpClassDiffPresenter >> initializeMethodPresenters [
+
+	sourceMethodPresenter := self newCode
+					lineNumbers: StPharoSettings codeShowLineNumbers;
+					text: '';
+					yourself.	
+	targetMethodPresenter := self newCode
+					lineNumbers: StPharoSettings codeShowLineNumbers;
+					text: '';
+					yourself.	
+
+]
+
+{ #category : 'initialization' }
+SpClassDiffPresenter >> initializePresenters [ 
+
+	self initializeListPresenters.
+	self initializeMethodPresenters.
 ]
 
 { #category : 'initialization' }
@@ -137,13 +188,13 @@ SpClassDiffPresenter >> sourceClass: anObject [
 { #category : 'accessing' }
 SpClassDiffPresenter >> sourceClassPresenter [
 
-	^ sourceClassPresenter
+	^ sourceClassListPresenter
 ]
 
 { #category : 'accessing' }
 SpClassDiffPresenter >> sourceClassPresenter: anObject [
 
-	sourceClassPresenter := anObject
+	sourceClassListPresenter := anObject
 ]
 
 { #category : 'accessing' }
@@ -183,6 +234,21 @@ SpClassDiffPresenter >> updateAlignment [
 	self sourceClassPresenter items: self aligner firstSequence.
 	self targetClassPresenter items: self aligner secondSequence.
 	self withWindowDo: [ :w | w title: self updatedTitle ].
+]
+
+{ #category : 'accessing' }
+SpClassDiffPresenter >> updateSelectionFromTarget: selector [ 
+
+	| aMethod |
+
+	selector = self aligner gapCharacter
+		ifTrue: [ ^ String empty ].
+
+	targetClassPresenter selectItem: selector.
+
+	aMethod := self sourceClass >> selector.
+	sourceMethodPresenter beForMethod: aMethod.
+	^ aMethod sourceCode
 ]
 
 { #category : 'initialization' }
