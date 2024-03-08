@@ -106,6 +106,39 @@ SpClassDiffPresenter >> defaultLayout [
 		yourself
 ]
 
+{ #category : 'commands' }
+SpClassDiffPresenter >> doBrowseClass [
+
+	self systemNavigation browse: sourceClass
+]
+
+{ #category : 'private - actions' }
+SpClassDiffPresenter >> doBrowseImplementors [
+
+	self systemNavigation browseAllImplementorsOf: self ensureSelectedItem.
+]
+
+{ #category : 'commands' }
+SpClassDiffPresenter >> doBrowseMethodReferences [
+
+	self systemNavigation browseAllSendersOrUsersOf: self ensureSelectedItem.
+]
+
+{ #category : 'private - actions' }
+SpClassDiffPresenter >> doBrowseSenders [
+
+	self systemNavigation browseAllSendersOf: self ensureSelectedItem
+]
+
+{ #category : 'controlling' }
+SpClassDiffPresenter >> ensureSelectedItem [
+	"Answer a <Symbol> representing the currently selected method. If the selection in any side is a gap character, then use the other side to get the selector"
+	
+	^ self sourceClassListPresenter selectedItem ~= self aligner gapCharacter
+		ifFalse: [ self sourceClassListPresenter selectedItem ]
+		ifTrue: [ self targetClassListPresenter selectedItem ]
+]
+
 { #category : 'initialization' }
 SpClassDiffPresenter >> initialExtentForWindow [
 
