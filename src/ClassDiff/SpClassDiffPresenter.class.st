@@ -8,7 +8,6 @@ See class side for examples.
 Class {
 	#name : 'SpClassDiffPresenter',
 	#superclass : 'SpPresenter',
-	#classTraits : '{} + TraitedClass',
 	#instVars : [
 		'sourceClass',
 		'targetClass',
