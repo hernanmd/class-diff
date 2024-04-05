@@ -14,6 +14,13 @@
 
 # Description
 
+Compare two classes side by side and identify similarities and differences between their methods. This package uses the Spec 2 library to provide an intuitive interface for visualizing and analyzing class behaviors.
+
+# Screenshot
+
+![Class Diff  identity %: 15 49s2](https://github.com/hernanmd/class-diff/assets/4825959/f539b9b5-80d6-4348-825c-2cb666e6b54a)
+
+
 # Installation
 
 ```smalltalk
