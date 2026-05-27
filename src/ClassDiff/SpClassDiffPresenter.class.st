@@ -1,9 +1,5 @@
 "
-A presenter to display the difference between two classes' methods. 
-The alignment is performed using the Needleman-Wunsch algorithm implemented in `ALNeedlemanWunsch`.
-
-See class side for examples.
-
+A Spec 2 presenter that displays a side-by-side diff of two classes method selectors using Needleman-Wunsch alignment. Selectors present in both classes are aligned; selectors present in only one class are shown with a gap character in the other sides list.
 "
 Class {
 	#name : 'SpClassDiffPresenter',
@@ -15,7 +11,8 @@ Class {
 		'sourceClassListPresenter',
 		'sourceMethodPresenter',
 		'targetMethodPresenter',
-		'targetClassListPresenter'
+		'targetClassListPresenter',
+		'isSyncingScroll'
 	],
 	#category : 'ClassDiff-Spec',
 	#package : 'ClassDiff',
@@ -70,21 +67,43 @@ SpClassDiffPresenter >> aligner: anObject [
 	aligner := anObject
 ]
 
-{ #category : 'initialization' }
-SpClassDiffPresenter >> connectPresenters [ 
+{ #category : 'private - commands' }
+SpClassDiffPresenter >> classCommandsGroup [
 
-	sourceClassListPresenter 
+	| group |
+	group := CmCommandGroup forSpec
+		         name: 'ClassDiffCommands';
+		         description: 'Commands for the ClassDiff browser'.
+	group register: (SpClassDiffBrowseClassCommand forSpecContext: self).
+	group register:
+		(SpClassDiffBrowseImplementorsCommand forSpecContext: self).
+	group register:
+		(SpClassDiffBrowseSendersCommand forSpecContext: self).
+	group register:
+		(SpClassDiffBrowseReferencesCommand forSpecContext: self).
+	^ group
+]
+
+{ #category : 'initialization' }
+SpClassDiffPresenter >> connectPresenters [
+
+	super connectPresenters.
+	sourceClassListPresenter
 		transmitTo: sourceMethodPresenter
-		transform: [ : selector | selector 
-			ifNotNil: [ self updateSelectionFromSource: selector ]
-			ifNil: [ String empty ] ].
-		
+		transform: [ :selector |
+				selector
+					ifNotNil: [ self updateSelectionFromSource: selector ]
+					ifNil: [ String empty ] ].
 	targetClassListPresenter
-		transmitTo: targetMethodPresenter 
-		transform: [ : selector | selector 
-			ifNotNil: [ self updateSelectionFromTarget: selector ] 
-			ifNil: [ String empty ] ]
-		
+		transmitTo: targetMethodPresenter
+		transform: [ :selector |
+				selector
+					ifNotNil: [ self updateSelectionFromTarget: selector ]
+					ifNil: [ String empty ] ].
+	sourceClassListPresenter whenBuiltDo: [ :ann |
+		self hookScrollSyncOnSource ].
+	targetClassListPresenter whenBuiltDo: [ :ann |
+		self hookScrollSyncOnTarget ]
 ]
 
 { #category : 'layout' }
@@ -105,7 +124,7 @@ SpClassDiffPresenter >> defaultLayout [
 		yourself
 ]
 
-{ #category : 'commands' }
+{ #category : 'actions' }
 SpClassDiffPresenter >> doBrowseClass [
 
 	self systemNavigation browse: sourceClass
@@ -129,13 +148,43 @@ SpClassDiffPresenter >> doBrowseSenders [
 	self systemNavigation browseAllSendersOf: self ensureSelectedItem
 ]
 
-{ #category : 'controlling' }
+{ #category : 'accessing' }
 SpClassDiffPresenter >> ensureSelectedItem [
-	"Answer a <Symbol> representing the currently selected method. If the selection in any side is a gap character, then use the other side to get the selector"
-	
-	^ self sourceClassListPresenter selectedItem ~= self aligner gapCharacter
-		ifFalse: [ self sourceClassListPresenter selectedItem ]
-		ifTrue: [ self targetClassListPresenter selectedItem ]
+
+	^ self sourceClassListPresenter selectedItem
+	  = self aligner gapCharacter
+		  ifTrue: [ self targetClassListPresenter selectedItem ]
+		  ifFalse: [ self sourceClassListPresenter selectedItem ]
+]
+
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> hookScrollSyncOnSource [
+
+	| table |
+	table := self sourceTableMorph.
+	table ifNil: [ ^ self ].
+	table announcer
+		when: FTScrollingChanged
+		send: #syncScrollFromSource
+		to: self.
+	self
+		wrapVerticalScrollBarOn: table
+		syncBlock: [ self syncScrollFromSource ]
+]
+
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> hookScrollSyncOnTarget [
+
+	| table |
+	table := self targetTableMorph.
+	table ifNil: [ ^ self ].
+	table announcer
+		when: FTScrollingChanged
+		send: #syncScrollFromTarget
+		to: self.
+	self
+		wrapVerticalScrollBarOn: table
+		syncBlock: [ self syncScrollFromTarget ]
 ]
 
 { #category : 'initialization' }
@@ -155,21 +204,33 @@ SpClassDiffPresenter >> initialTitle [
 SpClassDiffPresenter >> initialize [
 
 	super initialize.
-	aligner := ALNeedlemanWunsch new.
+	isSyncingScroll := false.
+	super initialize.
+	aligner := ALNeedlemanWunsch new
+]
+
+{ #category : 'initialization' }
+SpClassDiffPresenter >> initializeContextMenus [
+
+	| commandsGroup |
+	commandsGroup := self classCommandsGroup.
+	sourceClassListPresenter contextMenu: [
+		commandsGroup beRoot asMenuPresenter ].
+	targetClassListPresenter contextMenu: [
+		commandsGroup beRoot asMenuPresenter ]
 ]
 
 { #category : 'initialization' }
 SpClassDiffPresenter >> initializeListPresenters [
 
 	sourceClassListPresenter := self newList
-		beSingleSelection;
-		contextMenu: [ (self rootCommandsGroup / 'ClassDiffCommands') beRoot asMenuPresenter ];
-		yourself.
+		                            beSingleSelection;
+		                            contextMenu: [ self classCommandsGroup beRoot asMenuPresenter ];
+		                            yourself.
 	targetClassListPresenter := self newList
-		beSingleSelection;
-		whenSelectedItemChangedDo: [ : item | item ifNotNil: [ self updateSelectionFromTarget: item ] ];
-		contextMenu: [ (self rootCommandsGroup / 'ClassDiffCommands') beRoot asMenuPresenter ];		
-		yourself.
+		                            beSingleSelection;
+		                            contextMenu: [ self classCommandsGroup beRoot asMenuPresenter ];
+		                            yourself
 ]
 
 { #category : 'initialization' }
@@ -187,10 +248,11 @@ SpClassDiffPresenter >> initializeMethodPresenters [
 ]
 
 { #category : 'initialization' }
-SpClassDiffPresenter >> initializePresenters [ 
+SpClassDiffPresenter >> initializePresenters [
 
 	self initializeListPresenters.
 	self initializeMethodPresenters.
+	self initializeContextMenus
 ]
 
 { #category : 'initialization' }
@@ -239,16 +301,49 @@ SpClassDiffPresenter >> sourceClass [
 ]
 
 { #category : 'accessing' }
-SpClassDiffPresenter >> sourceClass: anObject [
+SpClassDiffPresenter >> sourceClass: aClass [
 
-	sourceClass := anObject.
-	self sourceClassListPresenter headerTitle: sourceClass name.
+	sourceClass := aClass.
+	sourceClass 
+		ifNotNil: [ sourceClassListPresenter headerTitle: sourceClass name ].
+	self updateAlignment
 ]
 
 { #category : 'accessing' }
 SpClassDiffPresenter >> sourceClassListPresenter [
 
 	^ sourceClassListPresenter
+]
+
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> sourceTableMorph [
+
+	^ sourceClassListPresenter withAdapterDo: [ :a |
+			  a widget allMorphs
+				  detect: [ :m | m class name = #SpFTTableMorph ]
+				  ifNone: [ nil ] ]
+]
+
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> syncScrollFromSource [
+
+	isSyncingScroll ifTrue: [ ^ self ].
+	self sourceTableMorph ifNotNil: [ :src |
+			self targetTableMorph ifNotNil: [ :tgt |
+					isSyncingScroll := true.
+					[ tgt moveShowIndexTo: src showIndex ] ensure: [
+						isSyncingScroll := false ] ] ]
+]
+
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> syncScrollFromTarget [
+
+	isSyncingScroll ifTrue: [ ^ self ].
+	self targetTableMorph ifNotNil: [ :tgt |
+			self sourceTableMorph ifNotNil: [ :src |
+					isSyncingScroll := true.
+					[ src moveShowIndexTo: tgt showIndex ] ensure: [
+						isSyncingScroll := false ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -258,10 +353,12 @@ SpClassDiffPresenter >> targetClass [
 ]
 
 { #category : 'accessing' }
-SpClassDiffPresenter >> targetClass: anObject [
+SpClassDiffPresenter >> targetClass: aClass [
 
-	targetClass := anObject.
-	self targetClassListPresenter headerTitle: targetClass name
+	targetClass := aClass.
+	targetClass ifNotNil: [
+		targetClassListPresenter headerTitle: targetClass name ].
+	self updateAlignment
 ]
 
 { #category : 'accessing' }
@@ -270,45 +367,54 @@ SpClassDiffPresenter >> targetClassListPresenter [
 	^ targetClassListPresenter
 ]
 
-{ #category : 'initialization' }
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> targetTableMorph [
+
+	^ targetClassListPresenter withAdapterDo: [ :a |
+			  a widget allMorphs
+				  detect: [ :m | m class name = #SpFTTableMorph ]
+				  ifNone: [ nil ] ]
+]
+
+{ #category : 'updating' }
 SpClassDiffPresenter >> updateAlignment [
 	"Align or re-align the source and target classes and update the presenters"
 
-	(self sourceClass isNil or: [ self targetClass isNil ])
-		ifTrue: [ ^ self ].
-	self aligner 
+	(self sourceClass isNil or: [ self targetClass isNil ]) ifTrue: [
+		^ self ].
+	self aligner
 		align: self sourceClass selectors sort
 		with: self targetClass selectors sort.
 	self sourceClassListPresenter items: self aligner firstSequence.
 	self targetClassListPresenter items: self aligner secondSequence.
-	self withWindowDo: [ :w | w title: self updatedTitle ].
+	self withWindowDo: [ :w | w title: self updatedTitle ]
 ]
 
-{ #category : 'accessing' }
-SpClassDiffPresenter >> updateSelectionFromSource: selector [ 
+{ #category : 'updating' }
+SpClassDiffPresenter >> updateSelectionFromSource: selector [
 
 	| aMethod |
-
-	selector = self aligner gapCharacter
-		ifTrue: [ ^ String empty ].
-
+	selector = self aligner gapCharacter ifTrue: [ ^ String empty ].
+	(self sourceClass isNil or: [
+		 (self sourceClass canUnderstand: selector) not ]) ifTrue: [
+			sourceMethodPresenter text: String empty.
+			^ String empty ].
 	targetClassListPresenter selectItem: selector.
-
 	aMethod := self sourceClass >> selector.
 	sourceMethodPresenter beForMethod: aMethod.
 	^ aMethod sourceCode
 ]
 
-{ #category : 'accessing' }
-SpClassDiffPresenter >> updateSelectionFromTarget: selector [ 
+{ #category : 'updating' }
+SpClassDiffPresenter >> updateSelectionFromTarget: selector [
 
 	| aMethod |
-
-	selector = self aligner gapCharacter
-		ifTrue: [ ^ String empty ].
-
+	selector = self aligner gapCharacter ifTrue: [ ^ String empty ].
+	(self targetClass isNil or: [
+		 (self targetClass canUnderstand: selector) not ]) ifTrue: [
+			targetMethodPresenter text: String empty.
+			^ String empty ].
 	sourceClassListPresenter selectItem: selector.
-
 	aMethod := self targetClass >> selector.
 	targetMethodPresenter beForMethod: aMethod.
 	^ aMethod sourceCode
@@ -326,4 +432,30 @@ SpClassDiffPresenter >> updatedTitle [
 					<< ' [identity %: ';
 					<< self aligner identity asString;
 					<< ']' ] ]
+]
+
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> wrapVerticalScrollBarOn: table [
+
+	| interceptor |
+	interceptor := SpClassDiffScrollBarInterceptor new
+		               table: table
+		               originalModel: table
+		               scrollSyncSelector: #syncScrollFromSource.
+	table verticalScrollBar
+		model: interceptor;
+		setValueSelector: #verticalScrollBarValue:
+]
+
+{ #category : 'private - scrolling' }
+SpClassDiffPresenter >> wrapVerticalScrollBarOn: table syncBlock: aBlock [
+
+	| interceptor |
+	interceptor := SpClassDiffScrollBarInterceptor new
+		               table: table
+		               originalModel: table
+		               scrollSyncBlock: aBlock.
+	table verticalScrollBar
+		model: interceptor;
+		setValueSelector: #verticalScrollBarValue:
 ]

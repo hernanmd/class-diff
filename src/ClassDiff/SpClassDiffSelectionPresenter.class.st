@@ -1,5 +1,5 @@
 "
-A class diference presenter which enables to select both target and source classes interactively.
+A Spec 2 presenter that extends SpClassDiffPresenter with class selector dropdowns. Users can choose source and target classes from searchable lists, then see the aligned method diff.
 "
 Class {
 	#name : 'SpClassDiffSelectionPresenter',
@@ -62,27 +62,28 @@ SpClassDiffSelectionPresenter >> initializePresenters [
 { #category : 'initialization' }
 SpClassDiffSelectionPresenter >> initializeSelectorPresenters [
 
-	sourceClassSelectorPresenter := (self instantiate: SpSelectEntity) 
-		selectDialog: [ SpListPresenter new
-				items: Smalltalk globals allClasses;
-				yourself ];
-		displaySymbol: #name;
-		placeholder: 'Source class';
-		possibleEntities: [ Smalltalk globals allClasses ];
-		whenEntityChanged:	[ : entity | 
-			self sourceClass: entity.
-			self updateAlignment. ]
-		yourself.
-
-	targetClassSelectorPresenter := (self instantiate: SpSelectEntity) 
-		selectDialog: [ SpListPresenter new
-				items: Smalltalk globals allClasses;
-				yourself ];
-		displaySymbol: #name;
-		placeholder: 'Target class';
-		possibleEntities: [ Smalltalk globals allClasses ];
-		whenEntityChanged:	[ : entity | 
-			self targetClass: entity.
-			self updateAlignment. ]		
-		yourself.
+	sourceClassSelectorPresenter := (self instantiate: SpSelectEntity)
+		                                selectDialog: [
+				                                SpListPresenter new
+					                                items: Smalltalk globals allClasses;
+					                                "sorted: [ :a :b | a name < b name ];"
+					                                yourself ];
+		                                displaySymbol: #name;
+		                                placeholder: 'Source class';
+		                                possibleEntities: [ Smalltalk globals allClasses sorted: [ :a :b | a name < b name ] ];
+		                                whenEntityChanged: [ :entity |
+		                                self sourceClass: entity ];
+		                                yourself.
+	targetClassSelectorPresenter := (self instantiate: SpSelectEntity)
+		                                selectDialog: [
+				                                SpListPresenter new
+					                                items: Smalltalk globals allClasses;
+					                                "sorted: [ :a :b | a name < b name ];"
+					                                yourself ];
+		                                displaySymbol: #name;
+		                                placeholder: 'Target class';
+		                                possibleEntities: [ Smalltalk globals allClasses sorted: [ :a :b | a name < b name ] ];
+		                                whenEntityChanged: [ :entity |
+		                                self targetClass: entity ];
+		                                yourself
 ]
